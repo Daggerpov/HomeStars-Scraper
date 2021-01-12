@@ -3,100 +3,100 @@ from random import randint
 from selenium import webdriver 
 from bs4 import BeautifulSoup
 import requests, csv
+from selenium.webdriver.common.keys import Keys
 
 def randomize_sleep(min, max):
     sleep(randint(min*100, max*100) / 100)
 
-def web_scraper():    
-    PATH = "/home/daggerpov/Documents/GitHub/Limousine-Scraper/chromedriver"
+def web_scraper(category_input, area_input):    
+    PATH = "/home/daggerpov/Documents/GitHub/HomeStars-Scraper/chromedriver"
     driver = webdriver.Chrome(PATH)
     
-    driver.get('https://www.limousineworldwide.directory/search_results')
+    driver.get('https://homestars.com/on/toronto/categories')
+    randomize_sleep(2, 3)
+
+    area = driver.find_element_by_xpath('//input[@class="header-search__keyword ui-autocomplete-input"]')
+    
+    area.click()
+    randomize_sleep(1, 2)
+
+    area.send_keys(category_input)
+    randomize_sleep(1, 2)
+
+    location = driver.find_element_by_xpath('//input[@class="header-search__location ui-autocomplete-input"]')
+    
+    location.clear()
+    randomize_sleep(1, 2)
+
+    location.click()
+    randomize_sleep(1, 2)
+
+    location.send_keys(area_input)
+    randomize_sleep(3, 4)
+
+    driver.find_element_by_xpath('//button[@class="header-search__button"]').click()
     randomize_sleep(4, 5)
 
-    while True:
-        try:
-            driver.find_element_by_xpath('//div[@class="btn btn-primary btn-block btn-lg bold clickToLoadMoreBtn"]').click()
-            randomize_sleep(4, 5)
-        except:
-            break
-    
-    sel_limousines = driver.find_elements_by_xpath('//a[@class="center-block"]')
-    limousines_links = []
-    for i in sel_limousines:
-        limousines_links.append(i.get_attribute('href'))
-
-    randomize_sleep(5, 6)
-    
-    return limousines_links, driver
-
-def retrieve_info(limo_link, driver):    
-    driver.get(limo_link)
-    randomize_sleep(5, 6)
-
-    header = {"From": "Daniel Agapov <danielagapov1@gmail.com>"}
-
-    response = requests.get(limo_link, headers=header)
-    if response.status_code != 200: 
-        print("Failed to get HTML:", response.status_code, response.reason) #no exit
-        name, company_type, location, phone_number, website = '', '', '', '', ''
-
-    else:
-        soup = BeautifulSoup(response.text, "html5lib")
-
-        try:
-            name = driver.find_element_by_xpath('//h1[@class="bold inline-block"]').text.replace('"', '')
-        except:name=''
-
-        try:
-            company_type = soup.select("span.profile-header-top-category")[0].text.replace('"', '')
-        except:company_type=''
-
-        try:
-            location = soup.select("span.profile-header-location")[0].text[1:].replace('"', '')
-        except:location=''
-
-        try:
-            driver.find_element_by_xpath('//div[@class="myphoneHide"]').click()
-            randomize_sleep(2, 3)
-            phone_number = driver.find_element_by_css_selector("a.btn-block > u").text.replace('"', '')
-        except:phone_number=''
-
-        try:
-            website = driver.find_element_by_xpath('//a[@class="weblink"][@title="website"][@rel="nofollow"][@itemprop="url"]').get_attribute('href')
-        except:website = ''
-
-    return [name, company_type, location, website, phone_number]
-
-def csv_entry(limousines_links, driver): 
-    
     #clears spreadsheet
-    with open(f"./limousines.csv", "w", encoding="utf-8", newline="") as f:
+    with open(f"./companies.csv", "w", encoding="utf-8", newline="") as f:
         writer = csv.writer(f)
         writer.writerows([])
+    
+    name, company_type, location_postal, phone_number, website = '', '', '', '', ''
 
-    for limo_link in limousines_links: 
-        table = []
-        table.append(retrieve_info(limo_link, driver))
+    company_bodies = driver.find_elements_by_xpath('//div[@class="name-row"]')
 
-        with open(f"./limousines.csv", "a", encoding="utf-8", newline="") as f:
+    for i in range(len(company_bodies)):
+        company_bodies = driver.find_elements_by_xpath('//div[@class="name-row"]')
+
+        company = company_bodies[i]
+        
+        try:
+            company.click() 
+        except:
+            driver.execute_script("arguments[0].scrollIntoView();", company)
+            randomize_sleep(3, 4)
+            company.click()
+        
+        randomize_sleep(4, 5)
+
+        try:
+            name = driver.find_element_by_css_selector('h1').text 
+        except:pass
+
+        try:
+            company_type = driver.find_element_by_xpath('//div[@class="company-header-details__category"]').text
+        except:pass
+
+        try:
+            location_postal = driver.find_element_by_xpath('//div[@class="company-header-details__address"]').text
+        except:pass
+
+        try:
+            phone_number = driver.find_element_by_xpath('//span[@data-reactid="15"]').text
+        except:pass
+
+        try:
+            website = driver.find_element_by_xpath('//a[@class="company-listing-subnav-contact__button"]').get_attribute('href')
+        except:pass 
+
+        company_info = [name, company_type, location_postal, phone_number, website]
+        
+        with open(f"./companies.csv", "a", encoding="utf-8", newline="") as f:
             writer = csv.writer(f)
-            writer.writerows(table)
+            writer.writerows([company_info])
+        
+        driver.execute_script("window.history.go(-1)")
 
-#this first function may seem redundant, but I need it to pass in these variables for the 
-#province_territory so that the index resets for every province_territory entered. 
+        randomize_sleep(5, 6)
 
 def scrape():
-    
-    limousines_links, driver = web_scraper()
-        
-    csv_entry(limousines_links, driver)
+    category_input, area_input = input("category: \n"), input("area: \n")
+
+    web_scraper(category_input, area_input)
 
     exit()
 
-def main():
-    scrape()
-
 if __name__ == '__main__':
-    main()
+    scrape()
 
