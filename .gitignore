@@ -125,3 +125,5 @@ dmypy.json
 .pyre/
 chromedriver
 companies.csv
+plumbing_vancouver.csv
+companies2.csv

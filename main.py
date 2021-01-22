@@ -14,21 +14,22 @@ def scroll_down():
 
     while True:
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-
         randomize_sleep(2, 3)
 
         # Calculate new scroll height and compare with last scroll height
         new_height = driver.execute_script("return document.body.scrollHeight")
 
-        randomize_sleep(0, 1)
-
         if new_height == last_height:
             break
         last_height = new_height
 
+def scroll_down_slightly():
+    driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+    randomize_sleep(2, 3)
+
 def scroll_up():
     driver.find_element_by_tag_name('body').send_keys(Keys.CONTROL + Keys.HOME)
-    randomize_sleep(3, 4)
+    randomize_sleep(1, 2)
 
 def location_input():
     location = driver.find_element_by_xpath('//input[@class="header-search__location ui-autocomplete-input"]')
@@ -42,6 +43,20 @@ def location_input():
     location.send_keys(area_input)
     randomize_sleep(1, 2)
 
+def load_results():
+    search_button = driver.find_element_by_xpath('//button[@class="header-search__button"]')
+    randomize_sleep(1, 2)
+
+    driver.execute_script("arguments[0].scrollIntoView();", search_button)
+    randomize_sleep(1, 2)
+
+    scroll_up()
+    
+    location_input()
+
+    search_button.click()
+    randomize_sleep(0, 1)
+
 def web_scraper(category_input, area_input):    
     PATH = "/home/daggerpov/Documents/GitHub/HomeStars-Scraper/chromedriver"
     global driver
@@ -50,7 +65,9 @@ def web_scraper(category_input, area_input):
     driver.get('https://homestars.com/on/toronto/categories')
     randomize_sleep(1, 2)
 
-    area = driver.find_element_by_xpath('//input[@class="header-search__keyword ui-autocomplete-input"]')
+    filename = 'plumbing_vancouver'
+
+    area = driver.find_element_by_xpath('//input[@class="header-search__keyword ui-autocomplete-input"][@id="header_keyword_search"]')
     
     area.click()
     randomize_sleep(1, 2)
@@ -64,53 +81,41 @@ def web_scraper(category_input, area_input):
     randomize_sleep(0, 1)
 
     #clears spreadsheet
-    with open(f"./companies.csv", "w", encoding="utf-8", newline="") as f:
+    with open(f"./{filename}.csv", "w", encoding="utf-8", newline="") as f:
         writer = csv.writer(f)
         writer.writerows([])
 
-    amount = driver.find_element_by_xpath('//div[@class="search-page-matches__tab m--active"]')
-    amount = amount.find_element_by_css_selector('a').text.split()[-1].replace('(', '').replace(')', '')
+    load_results()
+    scroll_down()
+    scroll_up()
+
+    '''amount = driver.find_element_by_xpath('//div[@class="search-page-matches__tab m--active"]')
+    amount = amount.find_element_by_css_selector('a').text.split()[-1].replace('(', '').replace(')', '')'''
+    company_bodies = driver.find_elements_by_xpath('//div[@class="name-row"]')
+    
     randomize_sleep(1, 2)
 
     companies_info = []
-    i = 0
 
-    for i in range(int(amount)):
-        print(i)
+    duplicates = 0
 
-        '''scroll_down()
-        driver.find_element_by_xpath('//a[@rel="start"]').click()
-        randomize_sleep(1, 2)'''
-
-        #scroll_up()
-        search_button = driver.find_element_by_xpath('//button[@class="header-search__button"]')
-        randomize_sleep(1, 2)
-        
-        location_input()
-
-        driver.execute_script("arguments[0].scrollIntoView();", search_button)
-        randomize_sleep(1, 2)
-
-        scroll_up()
-
-        search_button.click()
-        randomize_sleep(0, 1)
-        
-        scroll_down()
-        scroll_up()
+    for i in range(len(company_bodies)):
+        load_results()
 
         name, company_type, location_postal, phone_number, website = '', '', '', '', ''
         
-        company_bodies = driver.find_elements_by_xpath('//div[@class="name-row"]')
-        print(len(company_bodies))
-        company = company_bodies[i]
-        
+        while True:
+            try:
+                company_bodies = driver.find_elements_by_xpath('//div[@class="name-row"]')
+                company = company_bodies[i]
+                break
+            except:
+                scroll_down_slightly()
+                randomize_sleep(1, 2)
         try:
             company.click() 
         except:
             driver.execute_script("arguments[0].scrollIntoView();", company)
-            
-            randomize_sleep(1, 2)
             company.click()
         
         randomize_sleep(1, 2)
@@ -139,32 +144,37 @@ def web_scraper(category_input, area_input):
         
         company_info = [name, company_type, location_postal, phone_number, website]
 
-        print(company_info)
-
         empty = True 
-        for i in company_info:
-            if i != '':
+        for element in company_info:
+            if element != '':
                 empty = False
                 break
+        if empty == True:
+            print("empty")
         #ensures no duplicates, since there are some that are inherently included on the website for some reason
         if company_info not in companies_info and empty == False:
             companies_info.append(company_info)
             
-            with open(f"./companies.csv", "a", encoding="utf-8", newline="") as f:
+            with open(f"./{filename}.csv", "a", encoding="utf-8", newline="") as f:
                 writer = csv.writer(f)
                 writer.writerows([company_info])
+        elif company_info in companies_info and empty == False:
+            duplicates += 1
+        else:
+            print("empty (probably)")
                 
         driver.execute_script("window.history.go(-1)")
 
         randomize_sleep(1, 2)
+    print(f"duplicates: {duplicates}")
+
+    driver.quit()
 
 def scrape():
     global area_input
-    category_input, area_input = input("category: \n"), input("area: \n")
+    category_input, area_input = input("category: "), input("area: ")
 
     web_scraper(category_input, area_input)
-
-    exit()
 
 if __name__ == '__main__':
     scrape()
